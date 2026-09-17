@@ -920,14 +920,14 @@ def main() -> int:
     last_run = read_last_run()
     page = render(arch, trace, pod, args.trace, evidence, last_run)
     os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
-    with open(args.out, "w") as f:
+    with open(args.out, "w", encoding="utf-8") as f:
         f.write(page)
 
     # The same summary, on its own, beside the page. A grader that wants the
     # numbers should not have to parse HTML to get them.
     side = os.path.join(os.path.dirname(os.path.abspath(args.out)) or ".",
                         "readout-trace.json")
-    with open(side, "w") as f:
+    with open(side, "w", encoding="utf-8") as f:
         json.dump(trace.get("summary") or {}, f, indent=2, default=str)
 
     s = trace.get("summary", {})
