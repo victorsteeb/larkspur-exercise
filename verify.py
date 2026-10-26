@@ -175,8 +175,10 @@ def read_roster() -> tuple:
 
 
 def _placeholder(value: str) -> bool:
-    """`# Team: <your team name>` is the shipped template, not a team."""
-    return bool(re.match(r"^<.*>$", value.strip()))
+    """`# Team: Room <number>` and `- <Name>` are the shipped template, not a
+    team. Anything still holding <angle brackets> is unfilled, including the
+    older `<your team name>`. A filled-in `Room 7` is a team."""
+    return bool(re.search(r"<[^<>]*>", value))
 
 
 _ORDINALS = ("zeroth", "first", "second", "third", "fourth", "fifth", "sixth",

@@ -259,15 +259,18 @@ def read_trace(path: str) -> dict:
 def read_pod() -> str:
     """The team name off the first line of TEAM.md.
 
-    `# Team: <name>` is what ships now. The older `# Pod:` heading still reads,
-    so a repo made from the old template keeps working."""
+    `# Team: Room 7` is what a filled-in file says now (the team name is the
+    breakout room number). The older `# Pod:` heading still reads, so a repo
+    made from the old template keeps working. The unfilled template still
+    carries its <angle brackets> (`Room <number>`), and that is no name."""
     team = os.path.join(HERE, "TEAM.md")
     if os.path.exists(team):
         with open(team) as f:
             for line in f:
                 head = line.strip().lower()
                 if head.startswith("# team") or head.startswith("# pod"):
-                    return line.split(":", 1)[-1].strip()
+                    name = line.split(":", 1)[-1].strip()
+                    return "" if re.search(r"<[^<>]*>", name) else name
     return ""
 
 

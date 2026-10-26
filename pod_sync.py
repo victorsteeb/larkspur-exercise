@@ -92,7 +92,7 @@ def last_line(text):
 # person pushes at the end of the build, agreed before the clock runs out.
 
 TEAM_PATH = os.path.join(HERE, "TEAM.md")
-ROSTER_PLACEHOLDER = re.compile(r"^<.*>$")
+ROSTER_PLACEHOLDER = re.compile(r"<[^<>]*>")  # unfilled template text
 
 
 def read_roster():
@@ -108,7 +108,7 @@ def read_roster():
         if not line.startswith("- "):
             continue
         name = line[2:].strip()
-        if not name or ROSTER_PLACEHOLDER.match(name):
+        if not name or ROSTER_PLACEHOLDER.search(name):
             continue
         names.append(name)
     return names

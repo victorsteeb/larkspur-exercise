@@ -5,18 +5,38 @@ work (`support/tools.py`, running against a frozen copy of real airline data in
 `data/americas/`). You build `agent.py`, which holds what Claude is told about
 each tool and the loop that drives them.
 
-**Open `guide/index.html` for the steps.** It starts on **Welcome to your
-build**, which is the case study, then the three questions your team answers out
-loud, then **Get set up**. After that it is the build page by page. What you are
-building, what to do, what it looks like when it worked, and where to look when
-it did not. `guide/Participant-Guide.pdf` is the same thing on paper.
+**The steps are on the build site** at
+<https://anthropicpartnerbasecamp.bts.com/>. Everyone opens it on their own
+computer. Sign in with GitHub. Then join with the workshop code your facilitator
+gives you and your name.
 
-**The same steps run on the build site** at
-<https://anthropicpartnerbasecamp.bts.com/>, which your team opens together in
-the room. It opens on the welcome too, and the three Start pages sit under the
-first tab. The site adds the build clock at the top of the page and the box
-where you paste the evidence code a gate prints. Nothing uploads either way.
-Pick your surface once on Get set up and it stays picked.
+The site's **Home** page shows eight **activities**. An activity is one block of
+work. Day one has Setting up, Build 1, Build 2 and Ship it. Day two has Welcome
+back, Build 3, Build 4 and Present. Each activity has a few **parts**. The parts
+open in order: a part opens when you finish the one before it.
+
+Start with **Setting up**. It has four parts:
+
+1. **Meet your team.** Type your breakout room number. That number is your team
+   name, for example Room 7.
+2. **Create the repository.** One person, the **repo owner**, makes the team's
+   copy on GitHub and adds everyone.
+3. **Set up your computer.** Everyone gets the repository and Claude Code
+   working. Here you also choose how you will work: VS Code, a terminal, or the
+   Claude desktop app. The site remembers your choice.
+4. **Meet the client.** Read about Larkspur. Then your team answers one
+   question together and types the answer in one box.
+
+Some parts end with a **check**. You run `python3 verify.py` with the check's
+number, and it prints a six-character code. Paste that code into the box at the
+end of the part. Other parts end with a button you click when you have
+finished. The site cannot see your computer, so you always paste the code
+yourself.
+
+The **Menu** is at the top of every page. It holds the **unlock code** box: each
+activity opens when your facilitator opens it, and if it does not open on your
+screen, type the code they give you there. The Menu also holds your team's
+repository address and Sign out.
 
 **Nobody on the team has an assigned job.** You decide in the moment who does
 what. One rule stands. One person pushes the canon at the end of the build and
@@ -51,11 +71,12 @@ One person on the team makes this repo from the template at
 link in chat). **Use this template**, then **Create a new repository**, owner
 their own account, **Public**. Before the URL goes anywhere: **Settings**,
 **Collaborators**, **Add people** for every teammate by GitHub username, plus
-`victorsteeb` and the room lead's handle, which is in the chat. Anyone can read a
+your facilitator's GitHub handle, which is in the chat. Anyone can read a
 public repo, but only a collaborator can push to it: an uninvited teammate cannot
 publish the canon, and an uninvited reviewer cannot leave the overnight review in
-your repo. Then they post the repo URL in the team thread
+your repo. Then they post the repo URL in the team chat
 with the line `invites sent`, and nobody else does anything until it is there.
+Save that URL on the site too: **Menu**, then **Your team's repository**.
 The template itself is never your team's repo: save the URL of the repo you
 created from it.
 
@@ -99,8 +120,9 @@ re-running `bench.py --label before` against the current agent.
 | `bench.py --label <name>` | Measures a run: latency, tokens, cache, cost per contact. The before/after pair around your lever. |
 | `readout.py` | Writes the one page that says what your agent is and what it just did. The canon push publishes it. |
 
-`TEAM.md` is the team's name and a typed roster, written once by whoever created
-the repo. The review reads the names off it. `PITCH.md` and `evals/cases.json`
+`TEAM.md` is the team's name and a typed roster, written once by the repo owner.
+The team name is your breakout room number, so the first line reads like
+`# Team: Room 7`. The review reads the names off it. `PITCH.md` and `evals/cases.json`
 are the team's shared record, and they are normal commits. The bench pair never
 leaves your laptop.
 
