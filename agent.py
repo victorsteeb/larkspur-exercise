@@ -26,19 +26,16 @@ EXTRA_TOOLS: List[Dict[str, Any]] = [    # ✏️ Build 2, step 2.1: schemas for
     {
         "name": "fare_rules",
         "description": (
-            "Read a section of Larkspur's Handbook (v14.3, the text behind its fare and "
-            "care rules). Use it whenever the answer depends on what the Handbook or the "
-            "customer's fare family says, not only when they ask WHY: a refund, a change or "
-            "rebooking, a hotel, meal or goodwill question, or what their fare allows. If "
-            "check_policy points you to 'the fare rules' (for example a refund 'per fare "
-            "rules' or voluntary-change rules by fare family), read the section instead of "
-            "paraphrasing it from memory. check_policy says what is owed; this gives the "
-            "rule in the Handbook's own words and the fare-family terms behind it. "
-            "Sections: 4 Fare families, 5 When we delay, cancel or "
-            "divert, 6 Care while you wait (meals, hotel, goodwill), 7 What chat automation "
-            "will not do. If check_policy and the Handbook ever disagree, the policy table "
-            "wins. Do not use it to decide an entitlement, and do not quote amounts from "
-            "memory."
+            "Read a section of Larkspur's Handbook (v14.3), the written rules behind "
+            "fares, disruptions and care. Call it whenever the customer asks WHY they do or "
+            "do not get something (a hotel, a meal credit, a refund, goodwill, a free "
+            "change), or what a rule says. Do this even when check_policy has already "
+            "returned a verdict: check_policy gives the outcome, this gives the reason in "
+            "the Handbook's own words, and the customer asked for the reason. Read the "
+            "section instead of explaining the rule from memory, and base your explanation "
+            "on it. Sections: 4 Fare families, 5 When we delay, cancel or divert, 6 Care "
+            "while you wait (meals, hotel, goodwill), 7 What chat automation will not do. "
+            "If check_policy and the Handbook ever disagree, the policy table wins."
         ),
         "input_schema": {
             "type": "object",
