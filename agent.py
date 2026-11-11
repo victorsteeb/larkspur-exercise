@@ -117,8 +117,11 @@ def build_tools() -> List[Dict[str, Any]]:                 # ✏️ Build 1, ste
             "input_schema": {
                 "type": "object",
                 "properties": {
-                    "flight_no": {"type": "string", "description": "Flight number as on the booking segment, e.g. LK415."},
-                    "date": {"type": "string", "description": "Local departure date as YYYY-MM-DD, e.g. 2025-05-08. Take it from the booking segment; do not use MM/DD/YYYY."},
+                    "flight_no": {"type": "string"},
+                    "date": {"type": "string", "description": (
+                        "Local departure date as YYYY-MM-DD, exactly as lookup_booking "
+                        "returns it in segment.date."
+                    )},
                 },
                 "required": ["flight_no", "date"],
             },
@@ -126,11 +129,13 @@ def build_tools() -> List[Dict[str, Any]]:                 # ✏️ Build 1, ste
         {
             "name": "search_alternatives",
             "description": (
-                "Find rebooking options for the disrupted segment on this booking, ranked, "
-                "with seats left and live status. Call it after you have confirmed the "
-                "disruption with get_flight_status and the customer needs to travel. Each "
-                "option carries an option_id; that is what hold_seat needs. Offer these to "
-                "the customer; do not invent flights."
+                "Find other Larkspur flights the customer could be moved to for their "
+                "disrupted segment. Use it after lookup_booking and get_flight_status have "
+                "confirmed the flight is delayed, cancelled or diverted, and before offering "
+                "or holding any seat. Needs only the PNR; route, date, cabin and party size "
+                "come from the booking. Returns up to seven options, each with an option_id "
+                "(pass that to hold_seat or check_policy), plus excluded flights with the "
+                "reason. Never offer a flight that is not in these results."
             ),
             "input_schema": {
                 "type": "object",
