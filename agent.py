@@ -9,16 +9,74 @@ Where you edit:   grep -n '✏' agent.py   (six marks, one per place)
 Steps and gates:  https://anthropicpartnerbasecamp.bts.com/
 """
 from __future__ import annotations
+import re
+from pathlib import Path
 from typing import Any, Dict, List
 from support import (MODEL, SYSTEM_PROMPT, call_local, execute_tool, mcp_client,
                      new_session, next_available_day, record_tool_result,
                      runtime_preamble)
 
 MAX_TOOL_CALLS = 8  # Larkspur's own build capped the loop here; then a human takes over.
+FARE_RULES_PATH = Path(__file__).parent / "data" / "americas" / "fare_rules_excerpt.md"
 
 TONE_ADDENDUM = ""                       # ✏️ Build 4, step 4.1, intelligence goal
-EXTRA_TOOLS: List[Dict[str, Any]] = []   # ✏️ Build 2, step 2.1: schemas for the tools you add
-LOCAL_TOOLS: Dict[str, Any] = {}         # ✏️ Build 2, step 2.1: the functions behind them
+EXTRA_TOOLS: List[Dict[str, Any]] = [    # ✏️ Build 2, step 2.1: schemas for the tools you add
+    # Served by the MCP server, which reads data/americas/fare_rules_excerpt.md and
+    # splits it on its "### " headings: the section list below mirrors that file.
+    {
+        "name": "fare_rules",
+        "description": (
+            "Read a section of Larkspur's Handbook (v14.3), the written rules behind "
+            "fares, disruptions and care. Call it whenever the customer asks WHY they do or "
+            "do not get something (a hotel, a meal credit, a refund, goodwill, a free "
+            "change), or what a rule says. Do this even when check_policy has already "
+            "returned a verdict: check_policy gives the outcome, this gives the reason in "
+            "the Handbook's own words, and the customer asked for the reason. Read the "
+            "section instead of explaining the rule from memory, and base your explanation "
+            "on it. Sections: 4 Fare families, 5 When we delay, cancel or divert, 6 Care "
+            "while you wait (meals, hotel, goodwill), 7 What chat automation will not do. "
+            "If check_policy and the Handbook ever disagree, the policy table wins."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "section": {
+                    "type": "string",
+                    "description": (
+                        "Handbook section number (4, 5, 6 or 7) or words from its title, "
+                        "e.g. '6' or 'care while you wait'. Fare family, refund or voluntary "
+                        "change: 4. Delay, cancellation or diversion remedies: 5. Hotel, meal "
+                        "or goodwill: 6. What a human must handle: 7."
+                    ),
+                },
+            },
+            "required": ["section"],
+        },
+    },
+]
+
+
+def fare_rules(section: str) -> str:
+    """Return one section of the Handbook excerpt, matched by number ("6") or by
+    words from its title ("care while you wait"). Unknown sections answer with
+    the list of valid ones, so Claude can retry."""
+    text = FARE_RULES_PATH.read_text(encoding="utf-8")
+    sections = []
+    for chunk in re.split(r"(?m)^### ", text)[1:]:
+        heading, _, body = chunk.partition("\n")
+        number, _, title = heading.partition(". ")
+        sections.append((number.strip(), title.strip(), "### " + chunk.strip()))
+    wanted = str(section).strip().lower().rstrip(".")
+    for number, title, full in sections:
+        if wanted == number or (wanted and wanted in title.lower()):
+            return full
+    valid = ", ".join(f"{n} ({t})" for n, t, _ in sections)
+    return f"No Handbook section matches '{section}'. Valid sections: {valid}."
+
+
+LOCAL_TOOLS: Dict[str, Any] = {          # ✏️ Build 2, step 2.1: the functions behind them
+    "fare_rules": fare_rules,
+}
 
 
 def text_of(response) -> str:
@@ -65,19 +123,17 @@ def run_agent(pnr: str, last_name: str, message: str) -> str:            # ✏�
         thinking={"type": "adaptive"}, tools=tools, messages=messages,
     )
 
-    answer = ""
     turns = 1
     while response.stop_reason == "tool_use" and turns < MAX_TOOL_CALLS:
-        messages.append({"role": "assistant", "content": text_of(response)})
+        messages.append({"role": "assistant", "content": response.content})
         messages.append({"role": "user", "content": tool_results(response)})
-        answer = text_of(response)
         response = client.messages.create(
             model=MODEL, max_tokens=4096, system=runtime_preamble() + SYSTEM_PROMPT + TONE_ADDENDUM,
             thinking={"type": "adaptive"}, tools=tools, messages=messages,
         )
         turns += 1
 
-    return answer
+    return text_of(response)
 
 
 def tool_list() -> List[Dict[str, Any]]:                   # ✏️ Build 2, step 2.2
@@ -119,17 +175,28 @@ def build_tools() -> List[Dict[str, Any]]:                 # ✏️ Build 1, ste
                 "type": "object",
                 "properties": {
                     "flight_no": {"type": "string"},
-                    "date": {"type": "string", "description": "MM/DD/YYYY"},
+                    "date": {"type": "string", "description": (
+                        "Local departure date as YYYY-MM-DD, exactly as lookup_booking "
+                        "returns it in segment.date."
+                    )},
                 },
                 "required": ["flight_no", "date"],
             },
         },
         {
             "name": "search_alternatives",
-            "description": "search",
+            "description": (
+                "Find other Larkspur flights the customer could be moved to for their "
+                "disrupted segment. Use it after lookup_booking and get_flight_status have "
+                "confirmed the flight is delayed, cancelled or diverted, and before offering "
+                "or holding any seat. Needs only the PNR; route, date, cabin and party size "
+                "come from the booking. Returns up to seven options, each with an option_id "
+                "(pass that to hold_seat or check_policy), plus excluded flights with the "
+                "reason. Never offer a flight that is not in these results."
+            ),
             "input_schema": {
                 "type": "object",
-                "properties": {"pnr": {"type": "string"}},
+                "properties": {"pnr": {"type": "string", "description": "Confirmation code from lookup_booking."}},
                 "required": ["pnr"],
             },
         },
@@ -159,10 +226,17 @@ def build_tools() -> List[Dict[str, Any]]:                 # ✏️ Build 1, ste
         },
         {
             "name": "hold_seat",
-            "description": "Place a 15-minute hold on one alternative. Reversible. It simply expires.",
+            "description": (
+                "Place a 15-minute hold on one alternative. Reversible. It simply expires. "
+                "Call it only after the customer has picked a specific option from "
+                "search_alternatives. The result carries the hold_id that confirm_rebooking needs."
+            ),
             "input_schema": {
                 "type": "object",
-                "properties": {"option_id": {"type": "string"}, "pnr": {"type": "string"}},
+                "properties": {
+                    "option_id": {"type": "string", "description": "option_id of the one option the customer chose, exactly as returned by search_alternatives."},
+                    "pnr": {"type": "string", "description": "Confirmation code from lookup_booking."},
+                },
                 "required": ["option_id", "pnr"],
             },
         },
@@ -175,7 +249,10 @@ def build_tools() -> List[Dict[str, Any]]:                 # ✏️ Build 1, ste
             ),
             "input_schema": {
                 "type": "object",
-                "properties": {"hold_id": {"type": "string"}, "confirmation_token": {"type": "string"}},
+                "properties": {
+                    "hold_id": {"type": "string", "description": "hold_id returned by hold_seat."},
+                    "confirmation_token": {"type": "string", "description": "Token produced by the customer's own Confirm-click. Never make one up; if you do not have it, ask the customer to click Confirm."},
+                },
                 "required": ["hold_id", "confirmation_token"],
             },
         },
@@ -190,9 +267,9 @@ def build_tools() -> List[Dict[str, Any]]:                 # ✏️ Build 1, ste
                 "type": "object",
                 "properties": {
                     "voucher_type": {"type": "string", "enum": ["meal", "ground", "hotel", "goodwill"]},
-                    "amount_usd": {"type": "number"},
-                    "pnr": {"type": "string"},
-                    "policy_row_id": {"type": "string"},
+                    "amount_usd": {"type": "number", "description": "Dollar amount the policy allows for this voucher type, as returned by check_policy. Do not guess an amount."},
+                    "pnr": {"type": "string", "description": "Confirmation code from lookup_booking."},
+                    "policy_row_id": {"type": "string", "description": "policy_row_id from the check_policy response that made this voucher eligible."},
                 },
                 "required": ["voucher_type", "amount_usd", "pnr", "policy_row_id"],
             },
@@ -215,10 +292,17 @@ def build_tools() -> List[Dict[str, Any]]:                 # ✏️ Build 1, ste
         },
         {
             "name": "send_confirmation",
-            "description": "Send the customer a written confirmation of what was just done. Benign.",
+            "description": (
+                "Send the customer a written confirmation of an action that has actually "
+                "been completed (a rebooking confirmed, a voucher issued). Call it after "
+                "that action succeeds, never before, and state only what the tool results showed."
+            ),
             "input_schema": {
                 "type": "object",
-                "properties": {"pnr": {"type": "string"}, "message": {"type": "string"}},
+                "properties": {
+                    "pnr": {"type": "string", "description": "Confirmation code from lookup_booking."},
+                    "message": {"type": "string", "description": "Plain-language summary of what was done, using only facts from tool results."},
+                },
                 "required": ["pnr", "message"],
             },
         },
