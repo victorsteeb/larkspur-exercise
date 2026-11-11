@@ -13,6 +13,7 @@ decides in the moment who does what.
 
 - Alex Gada
 - Zain Khizar
-- Tash Thomas
+- Natasha Thomas
 - Madhur Sood 
 - Preeti George
+- Christopher Harris 
