@@ -117,18 +117,24 @@ def build_tools() -> List[Dict[str, Any]]:                 # ✏️ Build 1, ste
             "input_schema": {
                 "type": "object",
                 "properties": {
-                    "flight_no": {"type": "string"},
-                    "date": {"type": "string", "description": "MM/DD/YYYY"},
+                    "flight_no": {"type": "string", "description": "Flight number as on the booking segment, e.g. LK415."},
+                    "date": {"type": "string", "description": "Local departure date as YYYY-MM-DD, e.g. 2025-05-08. Take it from the booking segment; do not use MM/DD/YYYY."},
                 },
                 "required": ["flight_no", "date"],
             },
         },
         {
             "name": "search_alternatives",
-            "description": "search",
+            "description": (
+                "Find rebooking options for the disrupted segment on this booking, ranked, "
+                "with seats left and live status. Call it after you have confirmed the "
+                "disruption with get_flight_status and the customer needs to travel. Each "
+                "option carries an option_id; that is what hold_seat needs. Offer these to "
+                "the customer; do not invent flights."
+            ),
             "input_schema": {
                 "type": "object",
-                "properties": {"pnr": {"type": "string"}},
+                "properties": {"pnr": {"type": "string", "description": "Confirmation code from lookup_booking."}},
                 "required": ["pnr"],
             },
         },
@@ -158,10 +164,17 @@ def build_tools() -> List[Dict[str, Any]]:                 # ✏️ Build 1, ste
         },
         {
             "name": "hold_seat",
-            "description": "Place a 15-minute hold on one alternative. Reversible. It simply expires.",
+            "description": (
+                "Place a 15-minute hold on one alternative. Reversible. It simply expires. "
+                "Call it only after the customer has picked a specific option from "
+                "search_alternatives. The result carries the hold_id that confirm_rebooking needs."
+            ),
             "input_schema": {
                 "type": "object",
-                "properties": {"option_id": {"type": "string"}, "pnr": {"type": "string"}},
+                "properties": {
+                    "option_id": {"type": "string", "description": "option_id of the one option the customer chose, exactly as returned by search_alternatives."},
+                    "pnr": {"type": "string", "description": "Confirmation code from lookup_booking."},
+                },
                 "required": ["option_id", "pnr"],
             },
         },
@@ -174,7 +187,10 @@ def build_tools() -> List[Dict[str, Any]]:                 # ✏️ Build 1, ste
             ),
             "input_schema": {
                 "type": "object",
-                "properties": {"hold_id": {"type": "string"}, "confirmation_token": {"type": "string"}},
+                "properties": {
+                    "hold_id": {"type": "string", "description": "hold_id returned by hold_seat."},
+                    "confirmation_token": {"type": "string", "description": "Token produced by the customer's own Confirm-click. Never make one up; if you do not have it, ask the customer to click Confirm."},
+                },
                 "required": ["hold_id", "confirmation_token"],
             },
         },
@@ -189,9 +205,9 @@ def build_tools() -> List[Dict[str, Any]]:                 # ✏️ Build 1, ste
                 "type": "object",
                 "properties": {
                     "voucher_type": {"type": "string", "enum": ["meal", "ground", "hotel", "goodwill"]},
-                    "amount_usd": {"type": "number"},
-                    "pnr": {"type": "string"},
-                    "policy_row_id": {"type": "string"},
+                    "amount_usd": {"type": "number", "description": "Dollar amount the policy allows for this voucher type, as returned by check_policy. Do not guess an amount."},
+                    "pnr": {"type": "string", "description": "Confirmation code from lookup_booking."},
+                    "policy_row_id": {"type": "string", "description": "policy_row_id from the check_policy response that made this voucher eligible."},
                 },
                 "required": ["voucher_type", "amount_usd", "pnr", "policy_row_id"],
             },
@@ -214,10 +230,17 @@ def build_tools() -> List[Dict[str, Any]]:                 # ✏️ Build 1, ste
         },
         {
             "name": "send_confirmation",
-            "description": "Send the customer a written confirmation of what was just done. Benign.",
+            "description": (
+                "Send the customer a written confirmation of an action that has actually "
+                "been completed (a rebooking confirmed, a voucher issued). Call it after "
+                "that action succeeds, never before, and state only what the tool results showed."
+            ),
             "input_schema": {
                 "type": "object",
-                "properties": {"pnr": {"type": "string"}, "message": {"type": "string"}},
+                "properties": {
+                    "pnr": {"type": "string", "description": "Confirmation code from lookup_booking."},
+                    "message": {"type": "string", "description": "Plain-language summary of what was done, using only facts from tool results."},
+                },
                 "required": ["pnr", "message"],
             },
         },
