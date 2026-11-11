@@ -14,14 +14,27 @@ from support import (MODEL, SYSTEM_PROMPT, call_local, execute_tool, mcp_client,
                      new_session, next_available_day, record_tool_result,
                      runtime_preamble)
 
-from support.mock_backend import load_flights
-
 MAX_TOOL_CALLS = 8  # Larkspur's own build capped the loop here; then a human takes over.
 
-TONE_ADDENDUM = ""                       # ✏️ Build 4, step 4.1, intelligence goal
-#EXTRA_TOOLS: List[Dict[str, Any]] = []   # ✏️ Build 2, step 2.1: schemas for the tools you add
+from support.mock_backend import load_flights
 
-EXTRA_TOOLS: List[Dict[str, Any]] = [
+
+def seats_left(flight_no: str, date: str, cabin: str = "Y") -> Dict[str, Any]:
+    """Free seats on one flight on one date, read from flights.csv."""
+    for row in load_flights():
+        if row["flight_no"] == flight_no and row["date"] == date:
+            return {
+                "flight_no": flight_no,
+                "date": date,
+                "seats_left_economy": row["seats_left_Y"],
+                "seats_left_premium": row["seats_left_J"],
+                "asked_cabin": cabin,
+            }
+    return {"error": f"No record of flight {flight_no} on {date} in flights.csv."}
+
+
+TONE_ADDENDUM = ""                       # ✏️ Build 4, step 4.1, intelligence goal
+EXTRA_TOOLS: List[Dict[str, Any]] = [    # ✏️ Build 2, step 2.1: schemas for the tools you add
     {
         "name": "seats_left",
         "description": (
@@ -44,29 +57,13 @@ EXTRA_TOOLS: List[Dict[str, Any]] = [
         },
     },
 ]
+LOCAL_TOOLS: Dict[str, Any] = {"seats_left": seats_left}  # ✏️ Build 2, step 2.1: the functions behind them
+
 
 def text_of(response) -> str:
     """Given. The last non-empty text block, never content[0]."""
     texts = [b.text for b in response.content if getattr(b, "type", None) == "text" and b.text]
     return texts[-1] if texts else ""
-
-def seats_left(flight_no: str, date: str, cabin: str = "Y") -> Dict[str, Any]:
-    """Free seats on one flight on one date, read from flights.csv."""
-    for row in load_flights():
-        if row["flight_no"] == flight_no and row["date"] == date:
-            return {
-                "flight_no": flight_no,
-                "date": date,
-                "seats_left_economy": row["seats_left_Y"],
-                "seats_left_premium": row["seats_left_J"],
-                "asked_cabin": cabin,
-            }
-    return {"error": f"No record of flight {flight_no} on {date} in flights.csv."}
-
-
-# ✏️ Build 2, step 2.1: the functions behind them. Must sit below seats_left,
-# because Python reads this line as the file loads and needs the function to exist.
-LOCAL_TOOLS: Dict[str, Any] = {"seats_left": seats_left}
 
 
 def tool_results(response) -> List[Dict[str, Any]]:
@@ -211,10 +208,17 @@ def build_tools() -> List[Dict[str, Any]]:                 # ✏️ Build 1, ste
         },
         {
             "name": "hold_seat",
-            "description": "Place a 15-minute hold on one alternative. Reversible. It simply expires.",
+            "description": (
+                "Place a 15-minute hold on one alternative. Reversible. It simply expires. "
+                "Call it only after the customer has picked a specific option from "
+                "search_alternatives. The result carries the hold_id that confirm_rebooking needs."
+            ),
             "input_schema": {
                 "type": "object",
-                "properties": {"option_id": {"type": "string"}, "pnr": {"type": "string"}},
+                "properties": {
+                    "option_id": {"type": "string", "description": "option_id of the one option the customer chose, exactly as returned by search_alternatives."},
+                    "pnr": {"type": "string", "description": "Confirmation code from lookup_booking."},
+                },
                 "required": ["option_id", "pnr"],
             },
         },
@@ -227,7 +231,10 @@ def build_tools() -> List[Dict[str, Any]]:                 # ✏️ Build 1, ste
             ),
             "input_schema": {
                 "type": "object",
-                "properties": {"hold_id": {"type": "string"}, "confirmation_token": {"type": "string"}},
+                "properties": {
+                    "hold_id": {"type": "string", "description": "hold_id returned by hold_seat."},
+                    "confirmation_token": {"type": "string", "description": "Token produced by the customer's own Confirm-click. Never make one up; if you do not have it, ask the customer to click Confirm."},
+                },
                 "required": ["hold_id", "confirmation_token"],
             },
         },
@@ -242,9 +249,9 @@ def build_tools() -> List[Dict[str, Any]]:                 # ✏️ Build 1, ste
                 "type": "object",
                 "properties": {
                     "voucher_type": {"type": "string", "enum": ["meal", "ground", "hotel", "goodwill"]},
-                    "amount_usd": {"type": "number"},
-                    "pnr": {"type": "string"},
-                    "policy_row_id": {"type": "string"},
+                    "amount_usd": {"type": "number", "description": "Dollar amount the policy allows for this voucher type, as returned by check_policy. Do not guess an amount."},
+                    "pnr": {"type": "string", "description": "Confirmation code from lookup_booking."},
+                    "policy_row_id": {"type": "string", "description": "policy_row_id from the check_policy response that made this voucher eligible."},
                 },
                 "required": ["voucher_type", "amount_usd", "pnr", "policy_row_id"],
             },
@@ -267,10 +274,17 @@ def build_tools() -> List[Dict[str, Any]]:                 # ✏️ Build 1, ste
         },
         {
             "name": "send_confirmation",
-            "description": "Send the customer a written confirmation of what was just done. Benign.",
+            "description": (
+                "Send the customer a written confirmation of an action that has actually "
+                "been completed (a rebooking confirmed, a voucher issued). Call it after "
+                "that action succeeds, never before, and state only what the tool results showed."
+            ),
             "input_schema": {
                 "type": "object",
-                "properties": {"pnr": {"type": "string"}, "message": {"type": "string"}},
+                "properties": {
+                    "pnr": {"type": "string", "description": "Confirmation code from lookup_booking."},
+                    "message": {"type": "string", "description": "Plain-language summary of what was done, using only facts from tool results."},
+                },
                 "required": ["pnr", "message"],
             },
         },
