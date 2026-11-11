@@ -9,16 +9,77 @@ Where you edit:   grep -n '✏' agent.py   (six marks, one per place)
 Steps and gates:  https://anthropicpartnerbasecamp.bts.com/
 """
 from __future__ import annotations
+import re
+from pathlib import Path
 from typing import Any, Dict, List
 from support import (MODEL, SYSTEM_PROMPT, call_local, execute_tool, mcp_client,
                      new_session, next_available_day, record_tool_result,
                      runtime_preamble)
 
 MAX_TOOL_CALLS = 8  # Larkspur's own build capped the loop here; then a human takes over.
+FARE_RULES_PATH = Path(__file__).parent / "data" / "americas" / "fare_rules_excerpt.md"
 
 TONE_ADDENDUM = ""                       # ✏️ Build 4, step 4.1, intelligence goal
-EXTRA_TOOLS: List[Dict[str, Any]] = []   # ✏️ Build 2, step 2.1: schemas for the tools you add
-LOCAL_TOOLS: Dict[str, Any] = {}         # ✏️ Build 2, step 2.1: the functions behind them
+EXTRA_TOOLS: List[Dict[str, Any]] = [    # ✏️ Build 2, step 2.1: schemas for the tools you add
+    # Served by the MCP server, which reads data/americas/fare_rules_excerpt.md and
+    # splits it on its "### " headings: the section list below mirrors that file.
+    {
+        "name": "fare_rules",
+        "description": (
+            "Read a section of Larkspur's Handbook (v14.3, the text behind its fare and "
+            "care rules). Use it whenever the answer depends on what the Handbook or the "
+            "customer's fare family says, not only when they ask WHY: a refund, a change or "
+            "rebooking, a hotel, meal or goodwill question, or what their fare allows. If "
+            "check_policy points you to 'the fare rules' (for example a refund 'per fare "
+            "rules' or voluntary-change rules by fare family), read the section instead of "
+            "paraphrasing it from memory. check_policy says what is owed; this gives the "
+            "rule in the Handbook's own words and the fare-family terms behind it. "
+            "Sections: 4 Fare families, 5 When we delay, cancel or "
+            "divert, 6 Care while you wait (meals, hotel, goodwill), 7 What chat automation "
+            "will not do. If check_policy and the Handbook ever disagree, the policy table "
+            "wins. Do not use it to decide an entitlement, and do not quote amounts from "
+            "memory."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "section": {
+                    "type": "string",
+                    "description": (
+                        "Handbook section number (4, 5, 6 or 7) or words from its title, "
+                        "e.g. '6' or 'care while you wait'. Fare family, refund or voluntary "
+                        "change: 4. Delay, cancellation or diversion remedies: 5. Hotel, meal "
+                        "or goodwill: 6. What a human must handle: 7."
+                    ),
+                },
+            },
+            "required": ["section"],
+        },
+    },
+]
+
+
+def fare_rules(section: str) -> str:
+    """Return one section of the Handbook excerpt, matched by number ("6") or by
+    words from its title ("care while you wait"). Unknown sections answer with
+    the list of valid ones, so Claude can retry."""
+    text = FARE_RULES_PATH.read_text(encoding="utf-8")
+    sections = []
+    for chunk in re.split(r"(?m)^### ", text)[1:]:
+        heading, _, body = chunk.partition("\n")
+        number, _, title = heading.partition(". ")
+        sections.append((number.strip(), title.strip(), "### " + chunk.strip()))
+    wanted = str(section).strip().lower().rstrip(".")
+    for number, title, full in sections:
+        if wanted == number or (wanted and wanted in title.lower()):
+            return full
+    valid = ", ".join(f"{n} ({t})" for n, t, _ in sections)
+    return f"No Handbook section matches '{section}'. Valid sections: {valid}."
+
+
+LOCAL_TOOLS: Dict[str, Any] = {          # ✏️ Build 2, step 2.1: the functions behind them
+    "fare_rules": fare_rules,
+}
 
 
 def text_of(response) -> str:
@@ -65,7 +126,6 @@ def run_agent(pnr: str, last_name: str, message: str) -> str:            # ✏�
         thinking={"type": "adaptive"}, tools=tools, messages=messages,
     )
 
-    answer = ""
     turns = 1
     while response.stop_reason == "tool_use" and turns < MAX_TOOL_CALLS:
         messages.append({"role": "assistant", "content": response.content})
