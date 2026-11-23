@@ -33,6 +33,15 @@ import subprocess
 import sys
 import time
 
+# Windows writes to a pipe (Claude Code, VS Code tasks) in its code page, cp1252,
+# which has no ✏ or →. Every file in this pack is UTF-8, so its output is too.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        if (_stream.encoding or "").lower().replace("-", "") != "utf8":
+            _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):
+        pass
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
@@ -65,7 +74,7 @@ GATE_NAMES = {"1.2": "Make the loop keep going", "1.3": "Make the tools route",
 def git(*args, timeout=40):
     try:
         r = subprocess.run(["git", *args], cwd=HERE, capture_output=True,
-                           text=True, timeout=timeout)
+                           text=True, encoding="utf-8", errors="replace", timeout=timeout)
         return r.returncode, (r.stdout + r.stderr).strip()
     except FileNotFoundError:
         return 127, "git is not installed"
@@ -86,7 +95,7 @@ def last_line(text):
 # the roster
 # ---------------------------------------------------------------------------
 # TEAM.md is the roster: the team's name and one typed name per person. The
-# overnight review reads the names off it, and --status prints it as one
+# client review (review.py) reads it, and --status prints it as one
 # paste-able line. Nothing derives a job from its order. The team decides in the
 # moment who does what, and the one rule that holds is the canon rule: one
 # person pushes at the end of the build, agreed before the clock runs out.
@@ -98,7 +107,7 @@ ROSTER_PLACEHOLDER = re.compile(r"<[^<>]*>")  # unfilled template text
 def read_roster():
     """The names in TEAM.md, in order, placeholders dropped."""
     try:
-        with open(TEAM_PATH, encoding="utf-8") as fh:
+        with open(TEAM_PATH, encoding="utf-8", errors="replace") as fh:
             text = fh.read()
     except OSError:
         return []
@@ -181,7 +190,7 @@ def ahead_behind(ref):
 def load_profile():
     """Read-only view of verify.py's own file. Same shape, never written here."""
     try:
-        with open(PROFILE_PATH) as f:
+        with open(PROFILE_PATH, encoding="utf-8", errors="replace") as f:
             return json.load(f)
     except Exception:  # noqa: BLE001 - a missing or half-written file means nothing banked
         return {"name": None, "banked": {}, "caught_up": [], "banked_from_checkpoint": []}
@@ -296,7 +305,7 @@ def cmd_status(args):
     if names:
         print("            pushed by: %s" % ", ".join(names))
 
-    # One paste-able line. The overnight review reads these names, and it is
+    # One paste-able line. The client review (review.py) reads TEAM.md, and it is
     # the fastest way to see the roster is actually finished.
     people = read_roster()
     if people:
@@ -420,7 +429,7 @@ def regenerate_readout():
     it shows the agent as it was two blocks ago."""
     try:
         r = subprocess.run([sys.executable, os.path.join(HERE, "readout.py")],
-                           cwd=HERE, capture_output=True, text=True, timeout=180)
+                           cwd=HERE, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=180)
     except (OSError, subprocess.SubprocessError) as exc:
         return False, "%s: %s" % (type(exc).__name__, exc)
     if r.returncode == 0:
@@ -617,9 +626,9 @@ def save_my_agent(gate):
     while os.path.exists(path):  # same second, same block: keep both, in order
         path = os.path.join(MINE_DIR, "agent-%s-%s-%d.py" % (block, stamp, n))
         n += 1
-    with open(src) as fh:
+    with open(src, encoding="utf-8", errors="replace") as fh:
         body = fh.read()
-    with open(path, "w") as fh:
+    with open(path, "w", encoding="utf-8") as fh:
         fh.write(body)
     return path
 

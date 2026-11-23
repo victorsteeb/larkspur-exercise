@@ -53,6 +53,15 @@ import sys
 import time
 import uuid
 
+# Windows writes to a pipe (Claude Code, VS Code tasks) in its code page, cp1252,
+# which has no ✏ or →. Every file in this pack is UTF-8, so its output is too.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        if (_stream.encoding or "").lower().replace("-", "") != "utf8":
+            _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):
+        pass
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
@@ -329,8 +338,8 @@ def compare(a_label, b_label) -> int:
         if not os.path.exists(p):
             print("No bench file for '%s'. Run: python3 bench.py --label %s" % (lbl, lbl))
             return 1
-    a = json.load(open(paths[0]))["summary"]
-    b = json.load(open(paths[1]))["summary"]
+    a = json.load(open(paths[0], encoding="utf-8", errors="replace"))["summary"]
+    b = json.load(open(paths[1], encoding="utf-8", errors="replace"))["summary"]
 
     # (key, label, lower_is_better, format)
     rows = [
@@ -452,7 +461,7 @@ def main() -> int:
 
     os.makedirs(WORKSHOP, exist_ok=True)
     out = os.path.join(WORKSHOP, "bench-%s.json" % args.label)
-    with open(out, "w") as fh:
+    with open(out, "w", encoding="utf-8") as fh:
         json.dump({"label": args.label, "summary": agg, "rows": rows}, fh, indent=2)
     print("Saved %s" % os.path.relpath(out, HERE))
     return 0

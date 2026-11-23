@@ -276,7 +276,7 @@ class Tracer:
     def save(self, path: str = ".workshop/last_trace.json") -> str:
         os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
         payload = {"summary": self.summary(), "turns": self.turns}
-        with open(path, "w") as handle:
+        with open(path, "w", encoding="utf-8") as handle:
             json.dump(payload, handle, indent=2, default=str)
         return path
 

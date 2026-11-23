@@ -29,6 +29,15 @@ import traceback
 from dataclasses import dataclass, field
 from typing import Callable, List, Optional
 
+# Windows writes to a pipe (Claude Code, VS Code tasks) in its code page, cp1252,
+# which has no ✏ or →. Every file in this pack is UTF-8, so its output is too.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        if (_stream.encoding or "").lower().replace("-", "") != "utf8":
+            _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):
+        pass
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
@@ -163,7 +172,7 @@ def read_roster() -> tuple:
     pod, members = None, []
     path = os.path.join(HERE, "TEAM.md")
     try:
-        with open(path) as fh:
+        with open(path, encoding="utf-8", errors="replace") as fh:
             text = fh.read()
     except OSError:
         text = ""
@@ -216,7 +225,7 @@ def evidence_code(step: str, name: str) -> str:
 
 def _load_profile() -> dict:
     if os.path.exists(PROFILE_PATH):
-        with open(PROFILE_PATH) as f:
+        with open(PROFILE_PATH, encoding="utf-8", errors="replace") as f:
             return json.load(f)
     return {"name": None, "banked": {}, "caught_up": [], "banked_from_checkpoint": []}
 
@@ -225,7 +234,7 @@ def _save_profile(profile: dict) -> None:
     """Bank it locally, and only locally. Nothing about a passed gate has to be
     committed or pushed: the code prints on this laptop and stays here."""
     os.makedirs(os.path.dirname(PROFILE_PATH), exist_ok=True)
-    with open(PROFILE_PATH, "w") as f:
+    with open(PROFILE_PATH, "w", encoding="utf-8") as f:
         json.dump(profile, f, indent=2)
 
 
@@ -477,7 +486,7 @@ def _bench(label: str) -> Optional[dict]:
     path = os.path.join(HERE, ".workshop", "bench-%s.json" % label)
     if not os.path.exists(path):
         return None
-    with open(path) as fh:
+    with open(path, encoding="utf-8", errors="replace") as fh:
         return json.load(fh)["summary"]
 
 
@@ -489,7 +498,7 @@ def _bench_rows(label: str) -> list:
     if not os.path.exists(path):
         return []
     try:
-        with open(path) as fh:
+        with open(path, encoding="utf-8", errors="replace") as fh:
             return json.load(fh).get("rows") or []
     except (OSError, ValueError):
         return []
@@ -516,7 +525,7 @@ def _declared_lane() -> Optional[str]:
     path = os.path.join(HERE, "PITCH.md")
     if not os.path.exists(path):
         return None
-    with open(path) as fh:
+    with open(path, encoding="utf-8", errors="replace") as fh:
         text = fh.read()
     line = LEVER_LINE_RE.search(text)
     if line is not None:
@@ -722,7 +731,7 @@ def step_6(args) -> List[Check]:
                       hint="cp evals/cases.example.json evals/cases.json, then make them "
                            "yours. The examples are worked examples, not your cases.")]
 
-    with open(cases_path) as fh:
+    with open(cases_path, encoding="utf-8", errors="replace") as fh:
         cases = json.load(fh).get("cases", [])
     ids = [c.get("id") for c in cases]
     hard = [c for c in cases if c.get("hard_gate")]
@@ -751,7 +760,7 @@ def step_6(args) -> List[Check]:
         checks.append(Check(False, "the harness has been run",
                             hint="python3 eval_harness.py"))
         return checks
-    with open(evals_path) as fh:
+    with open(evals_path, encoding="utf-8", errors="replace") as fh:
         report = json.load(fh)
     # Every case eval_harness attempted, including the ones it marked UNKNOWN
     # because the grader could not read its own judge. UNKNOWN is a case that
@@ -795,7 +804,7 @@ def step_6(args) -> List[Check]:
     pitch = os.path.join(HERE, "PITCH.md")
     claim = ""
     if os.path.exists(pitch):
-        with open(pitch) as fh:
+        with open(pitch, encoding="utf-8", errors="replace") as fh:
             claim = fh.read()
     # Substance, not shape. This used to pass on any digit anywhere in the file,
     # `Next: v2` included, while the hint asked for a unit and a denominator.
@@ -868,7 +877,7 @@ def _build2_probe() -> tuple:
            "What is the soonest day you could actually get us out?")
     warning = None
     if source:
-        with open(source) as fh:
+        with open(source, encoding="utf-8", errors="replace") as fh:
             lines = [l.strip() for l in fh if l.strip()]
         if len(lines) >= 3:
             pnr, last, msg = lines[0], lines[1], " ".join(lines[2:])
@@ -965,7 +974,7 @@ def step_7(args) -> List[Check]:
     # token count moves with sampling while a schema count does not.
     try:
         os.makedirs(os.path.dirname(BUILD2_TOKENS), exist_ok=True)
-        with open(BUILD2_TOKENS, "w") as fh:
+        with open(BUILD2_TOKENS, "w", encoding="utf-8") as fh:
             json.dump({"tokens_in": (summary.get("tokens") or {}).get("input", 0) or 0,
                        "tool_calls": summary.get("tool_calls", 0) or 0,
                        "schema_tokens": schema_total,
@@ -1107,7 +1116,7 @@ def step_2_2(args) -> List[Check]:
     live_after = (summary.get("tokens") or {}).get("input", 0) or 0
     banked = {}
     try:
-        with open(BUILD2_TOKENS) as fh:
+        with open(BUILD2_TOKENS, encoding="utf-8", errors="replace") as fh:
             banked = json.load(fh) or {}
     except (OSError, ValueError):
         banked = {}

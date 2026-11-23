@@ -42,17 +42,30 @@ repository address and Sign out.
 what. One rule stands. One person pushes the canon at the end of the build and
 everyone else takes it. Agree who before the clock runs out.
 
-## The five commands
+## The seven commands
 
-These five run the whole build.
+These seven run the whole build.
 
 ```bash
 git clone <your team repo URL>      # once
+python3 setup.py --key             # once, in your own terminal: paste your key to Claude
 python3 setup.py                   # until it says READY
 python3 run.py K7PQ2M --trace      # every build
 python3 verify.py 1.2              # every gate
 python3 pod_sync.py --take-canon   # at the end of a build
+python3 review.py                  # start of session two, after --take-canon
 ```
+
+`setup.py --key` saves your key to Claude. Copy it from the box **Your key to
+Claude** on the build site (Setting up, Part 3, or **Menu**, then **Copy your
+key to Claude**), run the command in your own terminal, and paste. Nothing
+shows as you paste; that is on purpose. Never paste the key into a chat with
+Claude.
+
+`review.py` is the client's review of your team's version. Everyone runs it at
+the start of session two, after `python3 pod_sync.py --take-canon`. The first
+run on a team makes `FEEDBACK.md` and sends it to the team repo; every later
+run brings that same file down.
 
 `setup.py` checks python, the SDK, git, a real reach to the team repo, and one
 live call to Claude. Every failure it prints names the fix. Run it at your own
@@ -112,13 +125,14 @@ re-running `bench.py --label before` against the current agent.
 
 | Script | What it does |
 |---|---|
-| `setup.py` | Checks this machine. `--fix` builds the venv and installs. Run it until READY. |
+| `setup.py` | Checks this machine. `--fix` builds the venv and installs. `--key` saves your key to Claude (paste it in your own terminal; nothing shows). Run it until READY. |
 | `run.py <PNR> --trace` | Runs the agent on one ticket and shows every turn on the wire. `--all` runs the five ticket types and writes the totals. |
 | `verify.py <step>` | A gate: `1.2`, `1.3`, `1.4`, `2.1`, `2.2`, `3.1`, `4.1`. Run it with no step and it prints the status board. |
 | `pod_sync.py` | The team's canon: `--push-canon --note "..."`, `--take-canon`, `--status`, `--history` (every push with its note). |
 | `eval_harness.py` | Runs `evals/cases.json`, your team's own cases, against your agent. |
 | `bench.py --label <name>` | Measures a run: latency, tokens, cache, cost per contact. The before/after pair around your lever. |
 | `readout.py` | Writes the one page that says what your agent is and what it just did. The canon push publishes it. |
+| `review.py` | The client's review of your team's version. Everyone runs it at the start of session two, after `pod_sync.py --take-canon`. The first run on a team makes `FEEDBACK.md`; later runs bring it down. |
 
 `TEAM.md` is the team's name and a typed roster, written once by the repo owner.
 The team name is your breakout room number, so the first line reads like

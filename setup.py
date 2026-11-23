@@ -30,6 +30,15 @@ import shutil
 import subprocess
 import sys
 
+# Windows writes to a pipe (Claude Code, VS Code tasks) in its code page, cp1252,
+# which has no ✏ or →. Every file in this pack is UTF-8, so its output is too.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        if (_stream.encoding or "").lower().replace("-", "") != "utf8":
+            _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):
+        pass
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
@@ -59,7 +68,7 @@ def _git(*args, **kwargs):
                GCM_INTERACTIVE="never")
     try:
         r = subprocess.run(["git"] + list(args), cwd=HERE, capture_output=True,
-                           text=True, timeout=timeout, env=env)
+                           text=True, encoding="utf-8", errors="replace", timeout=timeout, env=env)
         return r.returncode, (r.stdout + r.stderr).strip()
     except FileNotFoundError:
         return 127, "git is not installed"
@@ -125,7 +134,7 @@ def check_writable():
     try:
         os.makedirs(target, exist_ok=True)
         probe = os.path.join(target, ".probe")
-        with open(probe, "w") as handle:
+        with open(probe, "w", encoding="utf-8") as handle:
             handle.write("ok")
         os.remove(probe)
         return Check("writable", True, "can write to .workshop/ (your gates and bench numbers)")
@@ -201,6 +210,20 @@ def check_key_in_files():
 PRACTICE_REPO = "https://github.com/victorsteeb/larkspur-exercise.git"
 
 
+def is_template(url):
+    """True when a remote URL points at the template itself, in any of its forms:
+    https or ssh, with or without .git, with or without a trailing slash."""
+    u = (url or "").strip().lower().rstrip("/")
+    if u.endswith(".git"):
+        u = u[:-4]
+    for prefix in ("https://", "http://", "ssh://git@", "git@", "ssh://"):
+        if u.startswith(prefix):
+            u = u[len(prefix):]
+            break
+    u = u.replace("github.com:", "github.com/", 1)
+    return u == "github.com/victorsteeb/larkspur-exercise"
+
+
 def check_origin(day0=False):
     """A real reach for the team repo. This is the check that catches the
     corporate proxy that allows browsers and blocks git, which otherwise shows
@@ -217,6 +240,13 @@ def check_origin(day0=False):
                      "     Clone it, do not download the zip:\n"
                      "       git clone %s" % (PRACTICE_REPO + " larkspur-check" if day0
                                               else "<your team repo URL>"))
+    if not day0 and is_template(url):
+        return Check("origin", False, "git can reach %s" % what,
+                     "This folder is a clone of the template, not your team's repo.\n"
+                     "     One person makes the team's repo from it: open %s,\n"
+                     "     click 'Use this template', then 'Create a new repository'. Then clone\n"
+                     "     that new repo (its URL is in your team chat) and run setup.py there."
+                     % PRACTICE_REPO[:-4])
     code, out = _git("ls-remote", "--heads", "origin", timeout=30)
     if code == 0:
         return Check("origin", True, "git can reach %s (%s)" % (what, url))
@@ -303,7 +333,7 @@ def check_mcp_seam():
                      "     Re-clone before Build 2.", "advisory")
     try:
         r = subprocess.run([sys.executable, script], cwd=HERE, capture_output=True,
-                           text=True, timeout=60)
+                           text=True, encoding="utf-8", errors="replace", timeout=60)
     except subprocess.TimeoutExpired:
         return Check("mcp", False, "MCP self-test: timed out",
                      "Run it on its own and read the last line:\n       %s" % cmd, "advisory")

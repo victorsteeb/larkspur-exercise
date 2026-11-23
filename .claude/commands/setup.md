@@ -8,11 +8,13 @@ it needs the key rotated by whoever issued it, not a `git rm`. Say so plainly,
 tell them to raise it in the room now, and stop there.
 
 **Before the session?** If they say it is Day 0, or they have no team repo yet and the
-session has not started, the job is the laptop check only: run `python3 setup.py --day0 --json`
-instead, loop on that, and stop at READY. Do not ask for a key and do not send them to create
-or re-clone a team repo; both come at the start of the session. (If it says `unrecognized
-arguments: --day0`, their copy of the practice repo is older than the check: `git pull` in it,
-or tell them to ask the room lead.)
+session has not started, the laptop check is the pre-work check zip
+(`basecamp-prework-check`) the event hosts sent: point them to it. If they are already in a
+practice clone of this template, run `python3 setup.py --day0 --json` instead, loop on that,
+and stop at READY. Either way, do not ask for a key and do not send them to create or clone a
+team repo; both come at the start of the session. (If it says `unrecognized arguments:
+--day0`, their practice clone is older than the check: `git pull` in it, or use the pre-work
+check zip.)
 
 Then run `python3 setup.py --json` and read the result. Then loop:
 
@@ -45,7 +47,10 @@ Then run `python3 setup.py --json` and read the result. Then loop:
 4. Things you must NEVER do: edit `support/`, `verify.py`, `setup.py`,
    `readout.py` or `pod_sync.py` to make a check pass; weaken `.gitignore` or
    `.gitattributes`. If a check itself seems wrong, say so out loud. That is a
-   workshop bug worth flagging.
+   workshop bug worth flagging. A script that crashes on this laptop is not
+   that: an encoding error, a path, `.venv` or git state is the laptop, so fix
+   the laptop and re-run (Windows `charmap`/`cp1252` errors: `$env:PYTHONUTF8 = "1"`
+   in PowerShell, `set PYTHONUTF8=1` in cmd).
 5. Before ANY re-clone, copy the old `.workshop/` across to the new checkout.
    It holds their saved codes and their bench baselines, none of which exist
    on the remote and none of which can be reconstructed. Re-cloning over the

@@ -394,7 +394,7 @@ def sha(path: str):
 def _first_commit(root: str):
     try:
         r = subprocess.run(["git", "rev-list", "--max-parents=0", "HEAD"], cwd=root,
-                           capture_output=True, text=True, timeout=20)
+                           capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=20)
     except (OSError, subprocess.TimeoutExpired):
         return None
     roots = r.stdout.split() if r.returncode == 0 else []
