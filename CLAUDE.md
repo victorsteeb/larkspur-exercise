@@ -256,8 +256,8 @@ goes on its own line at the end.
   that command for them or suggest `!` mode: the prompt hides what is pasted, and
   neither your Bash tool nor `!` mode has a terminal to paste into. `.env` is denied
   to you in `.claude/settings.json` on purpose; do not try to read it another way.
-- The team repo is public. A key in any committed file can be switched off within
-  minutes, for the whole room. `pod_sync.py --push-canon` refuses a push that carries
+- A key in any committed file can leak, and a leaked key can be switched off for the
+  whole room. `pod_sync.py --push-canon` refuses a push that carries
   one; never help anyone get around that, and never put a key in `agent.py`.
 - When a gate, `run.py`, `bench.py` or `eval_harness.py` starts its message with
   `[ACCESS]`, the fault is this laptop's key, token or network, not the agent. Do not

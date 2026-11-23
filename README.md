@@ -82,16 +82,12 @@ there if you would rather not lead with a terminal.
 One person on the team makes this repo from the template at
 <https://github.com/victorsteeb/larkspur-exercise> (the room lead posts the same
 link in chat). **Use this template**, then **Create a new repository**, owner
-their own account, **Public**. Before the URL goes anywhere: **Settings**,
-**Collaborators**, **Add people** for every teammate by GitHub username, plus
-your facilitator's GitHub handle, which is in the chat. Anyone can read a
-public repo, but only a collaborator can push to it: an uninvited teammate cannot
-publish the canon, and your facilitator can only fix your repo for you if
-you invited them. Then they post the repo URL in the team chat
-with the line `invites sent`, and nobody else does anything until it is there.
-Save that URL on the site too: **Menu**, then **Your team's repository**.
-The template itself is never your team's repo: save the URL of the repo you
-created from it.
+their own account, **Private**. Before the URL goes anywhere: **Settings**,
+**Collaborators**, **Add people** for every teammate by GitHub username. The
+repo is for your team only: someone who is not added cannot see it, clone it or
+publish the canon. Then they post the repo URL in the team chat with the line
+`invites sent`, and nobody else does anything until it is there. The template
+itself is never your team's repo: clone the repo you created from it.
 
 Everyone else has an invitation email waiting. Accept it before you try to
 clone: you can read the repo before accepting, you cannot push to it. Clone it rather than
