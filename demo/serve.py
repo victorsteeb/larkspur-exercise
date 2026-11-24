@@ -50,6 +50,15 @@ import sys
 import time
 import traceback
 
+# Windows writes to a pipe (Claude Code, VS Code tasks) in its code page, cp1252,
+# which has no ✏ or →. Every file in this pack is UTF-8, so its output is too.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        if (_stream.encoding or "").lower().replace("-", "") != "utf8":
+            _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):
+        pass
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, ROOT)
@@ -81,7 +90,7 @@ def _last_tracer():
 
 def read_json(path, default=None):
     try:
-        with open(path) as fh:
+        with open(path, encoding="utf-8", errors="replace") as fh:
             return json.load(fh)
     except (OSError, json.JSONDecodeError):
         return default
@@ -300,7 +309,7 @@ def evidence() -> dict:
     pitch_path = os.path.join(ROOT, "PITCH.md")
     pitch = ""
     if os.path.exists(pitch_path):
-        with open(pitch_path) as fh:
+        with open(pitch_path, encoding="utf-8", errors="replace") as fh:
             pitch = fh.read()
 
     before = labels.get("before")

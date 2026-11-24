@@ -72,6 +72,15 @@ import os
 import sys
 import time
 
+# Windows writes to a pipe (Claude Code, VS Code tasks) in its code page, cp1252,
+# which has no ✏ or →. Every file in this pack is UTF-8, so its output is too.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        if (_stream.encoding or "").lower().replace("-", "") != "utf8":
+            _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):
+        pass
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
@@ -466,7 +475,7 @@ def main() -> int:
             print("\nThen make them yours. Three cases, at least two hard gates.")
         return 1
 
-    cases = json.load(open(path))["cases"]
+    cases = json.load(open(path, encoding="utf-8", errors="replace"))["cases"]
     if args.case:
         cases = [c for c in cases if c["id"] == args.case]
         if not cases:
@@ -520,7 +529,7 @@ def main() -> int:
 
     os.makedirs(WORKSHOP, exist_ok=True)
     out = os.path.join(WORKSHOP, "evals.json")
-    with open(out, "w") as fh:
+    with open(out, "w", encoding="utf-8") as fh:
         json.dump({"report": report,
                    "case_file": _shown(path),
                    "cases": [{"case": c, "result": r} for c, r in zip(cases, results)]},
