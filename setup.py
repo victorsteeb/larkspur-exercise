@@ -207,6 +207,52 @@ def check_key_in_files():
                  % (found, keyscan.WHY.replace("\n", "\n     ")))
 
 
+HOOK_MARK = "# larkspur key check (installed by setup.py)"
+HOOK = "#!/bin/sh\n" + HOOK_MARK + """
+# Runs support/precommit.py before every commit; it refuses a commit carrying a key
+# to Claude. It looks for a working Python 3 first (the Windows Store stub fails the
+# probe), and lets the commit through when there is none: it must never block work.
+top=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
+[ -f "$top/support/precommit.py" ] || exit 0
+for py in "$top/.venv/bin/python" "$top/.venv/Scripts/python.exe" python3 python; do
+  "$py" -c "import sys; sys.exit(sys.version_info < (3, 8))" >/dev/null 2>&1 \\
+    && exec "$py" "$top/support/precommit.py"
+done
+exit 0
+"""
+
+
+def check_key_hook():
+    """Installs the pre-commit key check in a team repo. Team repos are private, so
+    GitHub's free scanning no longer catches a pushed key; this check runs before
+    every commit instead. Never blocks: a repo where it cannot go is advisory."""
+    code, top = _git("rev-parse", "--show-toplevel")
+    if code != 0 or os.path.normcase(os.path.realpath(top)) != os.path.normcase(os.path.realpath(HERE)):
+        return None                       # not a clone of the team repo (e.g. the source repo)
+    code, hooks = _git("rev-parse", "--git-path", "hooks")
+    if code != 0:
+        return None
+    hooks = hooks if os.path.isabs(hooks) else os.path.join(HERE, hooks)
+    path = os.path.join(hooks, "pre-commit")
+    try:
+        if os.path.exists(path):
+            with open(path, encoding="utf-8", errors="replace") as fh:
+                current = fh.read()
+            if HOOK_MARK not in current:
+                return Check("keyhook", True, "key check before each commit (skipped: this "
+                             "repo already has its own pre-commit hook)", "", "advisory")
+            if current == HOOK:
+                return Check("keyhook", True, "key check runs before each commit")
+        os.makedirs(hooks, exist_ok=True)
+        with open(path, "w", encoding="utf-8", newline="\n") as fh:
+            fh.write(HOOK)
+        os.chmod(path, 0o755)
+    except OSError as exc:
+        return Check("keyhook", True, "key check before each commit (could not install: %s)"
+                     % (exc.strerror or exc), "", "advisory")
+    return Check("keyhook", True, "key check runs before each commit (just installed)")
+
+
 PRACTICE_REPO = "https://github.com/victorsteeb/larkspur-exercise.git"
 
 
@@ -467,7 +513,8 @@ def run_checks(live=True, day0=False):
     repo to ask for: GitHub reach is proved against the practice clone, VS Code and
     the GitHub CLI are looked at (never blocking), and there is no live call."""
     checks = [check_python(), check_venv(), check_sdk(), check_writable(),
-              check_git_identity(), check_env_ignored(), check_key_in_files(), check_origin(day0),
+              check_git_identity(), check_env_ignored(), check_key_in_files(), check_key_hook(),
+              check_origin(day0),
               check_claude_cli(required=day0)]
     if day0:
         checks += [check_vscode(), check_gh(), check_mcp_seam(),
