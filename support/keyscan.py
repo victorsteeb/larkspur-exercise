@@ -1,9 +1,10 @@
 """keyscan.py: find a key to Claude in files before they reach the team repo.
 
-The team repo is public. A key pushed to a public repo can be found and switched
-off within minutes, and in a workshop the key is often one key shared by the
-whole room, so one push can stop everyone. pod_sync.py runs this before it
-commits or pushes anything, and setup.py runs it over the tracked files.
+In a workshop the key is often one key shared by the whole room, so one leak
+can stop everyone. Team repos are private, so GitHub's free secret scanning no
+longer catches a pushed key: this does. pod_sync.py runs it before it commits or
+pushes anything, setup.py runs it over the tracked files, and the pre-commit
+hook setup.py installs (support/precommit.py) runs it before every commit.
 
 The match is on the shape of a real key, not on the prefix: the prefix on its
 own appears in client.py and setup.py, which check keys, and the placeholder in
@@ -141,6 +142,6 @@ def where(hit) -> str:
     return text
 
 
-WHY = ("The key to Claude in this workshop is shared by the whole room. The team repo\n"
-       "is public, and a key pushed to a public repo can be switched off within\n"
-       "minutes. Then it stops working for everyone in the room, not only for you.")
+WHY = ("The key to Claude in this workshop is shared by the whole room. A key that\n"
+       "leaks can be switched off, and then it stops working for everyone in the\n"
+       "room, not only for you.")
